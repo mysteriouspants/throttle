@@ -4,5 +4,7 @@ version = "0.1.0"
 license = "BSD-2-Clause"
 authors = ["Christopher R. Miller <xpm@mysteriouspants.com>"]
 description = "Simple throttle implementation to make rate-limiting easy."
+documentation = "https://docs.rs/mysteriouspants-throttle"
+repository = "https://github.com/mysteriouspants/throttle"
 
 [dependencies]

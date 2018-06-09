@@ -1,5 +1,7 @@
 # Throttle
 
+[![Crates.io](https://img.shields.io/crates/v/mysteriouspants-throttle.svg)](https://crates.io/crates/mysteriouspants-throttle)
+[![Documentation](https://docs.rs/mysteriouspants-throttle/badge.svg)](https://docs.rs/mysteriouspants-throttle/)
 [![Build Status](https://travis-ci.org/mysteriouspants/throttle.svg?branch=master)](https://travis-ci.org/mysteriouspants/throttle)
 
 A simple, configurable throttle for slowing down code. When do you actually want to slow down code? To avoid resource
