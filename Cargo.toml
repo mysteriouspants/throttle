@@ -1,7 +1,7 @@
 [package]
 name = "mysteriouspants-throttle"
 version = "0.1.0"
-license = "BSD"
+license = "BSD-2-Clause"
 authors = ["Christopher R. Miller <xpm@mysteriouspants.com>"]
 description = "Simple throttle implementation to make rate-limiting easy."
 
