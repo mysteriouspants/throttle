@@ -5,7 +5,7 @@ contention and browning out downstream services.
 
 ```rust
 // simple throttle configured for 10 TPS
-let throttle = tps_throttle!(10.0);
+let throttle = Throttle::new_tps_throttle(10.0);
 
 let iteration_start = Instant::now();
 
