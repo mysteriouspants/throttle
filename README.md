@@ -1,5 +1,7 @@
 # Throttle
 
+[![Build Status](https://travis-ci.org/mysteriouspants/throttle.svg?branch=master)](https://travis-ci.org/mysteriouspants/throttle)
+
 A simple, configurable throttle for slowing down code. When do you actually want to slow down code? To avoid resource
 contention and browning out downstream services.
 
