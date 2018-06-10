@@ -36,7 +36,8 @@
 //! # use std::time::{Duration, Instant};
 //! # use mysteriouspants_throttle::Throttle;
 //! # fn main() {
-//! let throttle = Throttle::new_variable_throttle(|arg: u64, _| Duration::from_millis(arg));
+//! let throttle = Throttle::new_variable_throttle(
+//!     |arg: u64, _| Duration::from_millis(arg));
 //!
 //! let iteration_start = Instant::now();
 //!
@@ -59,7 +60,7 @@ enum ThrottleState {
     }
 }
 
-// A simple configurable throttle for slowing down code.
+// A simple configurable throttle for slowing down code. A Throttle
 pub struct Throttle<TArg> {
     delay_calculator: Box<Fn(TArg, Duration) -> Duration>,
     state: Cell<ThrottleState>
@@ -71,23 +72,9 @@ impl <TArg> Throttle<TArg> {
     /// It is called to determine how long the `Throttle` ought to wait before resuming execution,
     /// and allows you to create `Throttle`s which respond to changes in the program or environment.
     ///
-    /// They range from the simple:
-    ///
-    /// ```rust
-    /// # extern crate mysteriouspants_throttle;
-    /// # use std::time::{Duration, Instant};
-    /// # use mysteriouspants_throttle::Throttle;
-    /// let throttle = Throttle::new_variable_throttle(|_, _| Duration::from_millis(1100));
-    ///
-    /// // the first one is free!
-    /// throttle.acquire(());
-    ///
-    /// let start = Instant::now();
-    /// throttle.acquire(());
-    /// assert_eq!(start.elapsed().as_secs() == 1, true);
-    /// ```
-    ///
-    /// To the complex:
+    /// An example use of a variable-rate throttle might be to wait different periods of time
+    /// depending on whether your program is in backpressure, so "ease up" on your downstream call
+    /// rate, so to speak.
     ///
     /// ```rust
     /// # extern crate mysteriouspants_throttle;
@@ -111,16 +98,30 @@ impl <TArg> Throttle<TArg> {
     /// throttle.acquire(true);
     /// assert_eq!(start_yespressure.elapsed().as_secs() == 2, true);
     /// ```
-    pub fn new_variable_throttle<TDelayCalculator>(delay_calculator: TDelayCalculator) -> Throttle<TArg>
-            where TDelayCalculator: Fn(TArg, Duration) -> Duration + 'static {
+    pub fn new_variable_throttle<TDelayCalculator: Fn(TArg, Duration) -> Duration + 'static>(
+        delay_calculator: TDelayCalculator) -> Throttle<TArg> {
         return Throttle {
             delay_calculator: Box::new(delay_calculator),
             state: Cell::new(ThrottleState::Uninitialized)
         };
     }
 
-    /// Creates a new `Throttle` with a constant delay of `tps`^-1 * 1000, or `tps`-transactions per
-    /// second.
+    /// Creates a new `Throttle` with a constant delay of `tps`<sup>-1</sup> &middot; 1000, or
+    /// `tps`-transactions per second.
+    ///
+    /// ```rust
+    /// # extern crate mysteriouspants_throttle;
+    /// # use std::time::{Duration, Instant};
+    /// # use mysteriouspants_throttle::Throttle;
+    /// let throttle = Throttle::new_tps_throttle(0.9);
+    ///
+    /// // the first one is free!
+    /// throttle.acquire(());
+    ///
+    /// let start = Instant::now();
+    /// throttle.acquire(());
+    /// assert_eq!(start.elapsed().as_secs() == 1, true);
+    /// ```
     pub fn new_tps_throttle(tps: f32) -> Throttle<TArg> {
         return Throttle {
             delay_calculator: Box::new(move |_, _|
@@ -140,10 +141,13 @@ impl <TArg> Throttle<TArg> {
                 let time_since_previous_acquire =
                     Instant::now().duration_since(previous_invocation);
                 let delay_time = (self.delay_calculator)(arg, time_since_previous_acquire);
-                let additional_delay_required = delay_time - time_since_previous_acquire;
 
-                if additional_delay_required > Duration::from_secs(0) {
-                    sleep(additional_delay_required);
+                if delay_time > Duration::from_secs(0) {
+                    let additional_delay_required = delay_time - time_since_previous_acquire;
+
+                    if additional_delay_required > Duration::from_secs(0) {
+                        sleep(additional_delay_required);
+                    }
                 }
 
                 self.state.replace(ThrottleState::Initialized {
@@ -161,7 +165,7 @@ impl <TArg> Throttle<TArg> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Instant;
+    use std::time::{Duration, Instant};
     use Throttle;
 
     #[test]
@@ -169,12 +173,56 @@ mod tests {
         // simple throttle configured for 10 TPS
         let throttle = Throttle::new_tps_throttle(10.0);
 
+        // the first one is free
+        throttle.acquire(());
+
         let iteration_start = Instant::now();
 
-        for _i in 0..11 {
+        for _i in 0..10 {
             throttle.acquire(());
         }
 
         assert_eq!(iteration_start.elapsed().as_secs() == 1, true);
+    }
+
+    #[test]
+    fn it_works_more_complicated() {
+        let throttle = Throttle::new_variable_throttle(
+            |arg: u64, _| Duration::from_millis(arg));
+
+        // the first one is free, so the number won't get used
+        throttle.acquire(0);
+
+        let iteration_start = Instant::now();
+
+        for i in 1..5 {
+            throttle.acquire(i * 100);
+        }
+
+        assert_eq!(iteration_start.elapsed().as_secs() == 1, true);
+    }
+
+    // from a user-perspective, a delay of zero ought to mean "no delay," and I don't want to
+    // worry about pesky panics trying to subtract durations!
+
+    #[test]
+    fn it_works_with_no_delay_at_all_tps() {
+        let throttle = Throttle::new_tps_throttle(0.0);
+
+        throttle.acquire(());
+        throttle.acquire(());
+
+        // no panic, no problem!
+    }
+
+    #[test]
+    fn it_works_with_no_delay_at_all_variable() {
+        let throttle = Throttle::new_variable_throttle(
+            |_, _| Duration::from_millis(0));
+
+        throttle.acquire(());
+        throttle.acquire(());
+
+        // no panic, no problem!
     }
 }

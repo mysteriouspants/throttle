@@ -1,10 +1,19 @@
 [package]
 name = "mysteriouspants-throttle"
-version = "0.1.0"
-license = "BSD-2-Clause"
-authors = ["Christopher R. Miller <xpm@mysteriouspants.com>"]
+version = "0.2.0"
+
 description = "Simple throttle implementation to make rate-limiting easy."
+readme = "README.md"
+
+authors = ["Christopher R. Miller <xpm@mysteriouspants.com>"]
+
 documentation = "https://docs.rs/mysteriouspants-throttle"
 repository = "https://github.com/mysteriouspants/throttle"
 
-[dependencies]
+keywords = ["throttle"]
+categories = [""]
+
+license = "BSD-2-Clause"
+
+[badges]
+travis-ci = { repository = "mysteriouspants/throttle" }

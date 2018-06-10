@@ -13,14 +13,36 @@ let throttle = Throttle::new_tps_throttle(10.0);
 
 let iteration_start = Instant::now();
 
+// the first one is free!
+throttle.acquire(());
+
 // the first iteration is free, subsequent iterations
 // will be slowed down to a rate of 10 TPS, or one iteration
 // every 100 milliseconds
-for _i in 0..11 {
+for _i in 0..10 {
     throttle.acquire(());
 }
 
 println!("elapsed time: {:?}", iteration_start.elapsed());
+
+assert_eq!(iteration_start.elapsed().as_secs() == 1, true);
+```
+
+Throttle is based on a functional interface, so it can go beyond constant tps rate limiting to facilitating
+variable-rate throttling based on conditions entirely up to your program.
+
+```rust
+let throttle = Throttle::new_variable_throttle(
+    |iteration: u32, _| Duration::from_millis(arg));
+
+// the first one is free, so the number won't get used
+throttle.acquire(0);
+
+let iteration_start = Instant::now();
+
+for i in 1..5 {
+    throttle.acquire(i * 100);
+}
 
 assert_eq!(iteration_start.elapsed().as_secs() == 1, true);
 ```
