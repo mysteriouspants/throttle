@@ -107,7 +107,7 @@ impl <TArg> Throttle<TArg> {
     /// depending on whether your program is in backpressure, so "ease up" on your downstream call
     /// rate, so to speak.
     ///
-    /// ```rust
+    /// ```
     /// # extern crate mysteriouspants_throttle;
     /// # use std::time::{Duration, Instant};
     /// # use mysteriouspants_throttle::Throttle;
@@ -123,11 +123,11 @@ impl <TArg> Throttle<TArg> {
     ///
     /// let start_nopressure = Instant::now();
     /// throttle.acquire(false);
-    /// assert_eq!(start_nopressure.elapsed().as_millis() >= 100, true);
+    /// assert_eq!(start_nopressure.elapsed().subsec_nanos() >= 100_000_000, true);
     ///
     /// let start_yespressure = Instant::now();
     /// throttle.acquire(true);
-    /// assert_eq!(start_yespressure.elapsed().as_millis() >= 200, true);
+    /// assert_eq!(start_yespressure.elapsed().subsec_nanos() >= 200_000_000, true);
     /// ```
     pub fn new_variable_throttle<TDelayCalculator: Fn(TArg, Duration) -> Duration + 'static>(
         delay_calculator: TDelayCalculator) -> Throttle<TArg> {
