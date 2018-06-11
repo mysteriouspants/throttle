@@ -1,11 +1,12 @@
-//! A simple throttle, used for slowing down repeated code. Use this to avoid
-//! drowning out downstream systems. For example, if I were reading the contents
-//! of a file repeatedly (polling for data, perhaps), or calling an external
-//! network resource, I could use a `Throttle` to slow that down to avoid
-//! resource contention or browning out a downstream service.
+//! A simple throttle, used for slowing down repeated code. Use this to avoid drowning out
+//! downstream systems. For example, if I were reading the contents of a file repeatedly (polling
+//! for data, perhaps), or calling an external network resource, I could use a `Throttle` to slow
+//! that down to avoid resource contention or browning out a downstream service. Another potential
+//! use of a `Throttle` is in video game code to lock a framerate lower to promote predictable
+//! gameplay or to avoid burning up user's graphics hardware unnecessarily.
 //!
-//! This ranges in utility from a simple TPS throttle, "never go faster than *x*
-//! transactions per second,"
+//! This ranges in utility from a simple TPS throttle, "never go faster than *x* transactions per
+//! second,"
 //!
 //! ```rust
 //! # extern crate mysteriouspants_throttle;
@@ -28,8 +29,8 @@
 //! # }
 //! ```
 //!
-//! To more complicated variable-rate throttles, which may be as advanced as to slow
-//! in response to backpressure.
+//! To more complicated variable-rate throttles, which may be as advanced as to slow in response to
+//! backpressure.
 //!
 //! ```rust
 //! # extern crate mysteriouspants_throttle;
@@ -69,8 +70,15 @@ pub struct Throttle<TArg> {
 impl <TArg> Throttle<TArg> {
     /// Creates a new `Throttle` with a variable delay controlled by a closure. `delay_calculator`
     /// itself is an interesting type, any closure which satisfies `Fn(TArg, Duration) -> Duration`.
-    /// It is called to determine how long the `Throttle` ought to wait before resuming execution,
-    /// and allows you to create `Throttle`s which respond to changes in the program or environment.
+    ///
+    /// This lambda is called to determine the duration between iterations of your code - the
+    /// `Duration` it returns does not signify the additional time to be waited, but the total time
+    /// that ought to have elapsed, and the difference of the times will be waited. `TArg` is an
+    /// argument passsed in from a call to `acquire`, so you may pass any state you may require into
+    /// the lambda to make decisions about the wait time. The `Duration` argument the time that has
+    /// already elapsed from the previous call to `acquire` and now. If the `Duration` you return is
+    /// less than the `Duration` passed to you, or is zero, that means that no additional time ought
+    /// to be waited.
     ///
     /// An example use of a variable-rate throttle might be to wait different periods of time
     /// depending on whether your program is in backpressure, so "ease up" on your downstream call
@@ -106,7 +114,7 @@ impl <TArg> Throttle<TArg> {
         };
     }
 
-    /// Creates a new `Throttle` with a constant delay of `tps`<sup>-1</sup> &middot; 1000, or
+    /// Creates a new `Throttle` with a constant delay of `tps`<sup>-1</sup> &middot; 1000ms, or
     /// `tps`-transactions per second.
     ///
     /// ```rust
@@ -123,9 +131,10 @@ impl <TArg> Throttle<TArg> {
     /// assert_eq!(start.elapsed().as_secs() == 1, true);
     /// ```
     pub fn new_tps_throttle(tps: f32) -> Throttle<TArg> {
+        let wait_for_millis = ((1.0 / tps) * 1000.0) as u64;
         return Throttle {
             delay_calculator: Box::new(move |_, _|
-                Duration::from_millis(((1.0 / tps) * 1000.0) as u64)),
+                Duration::from_millis(wait_for_millis)),
             state: Cell::new(ThrottleState::Uninitialized)
         };
     }
@@ -142,7 +151,8 @@ impl <TArg> Throttle<TArg> {
                     Instant::now().duration_since(previous_invocation);
                 let delay_time = (self.delay_calculator)(arg, time_since_previous_acquire);
 
-                if delay_time > Duration::from_secs(0) {
+                if delay_time > Duration::from_secs(0)
+                        && delay_time > time_since_previous_acquire {
                     let additional_delay_required = delay_time - time_since_previous_acquire;
 
                     if additional_delay_required > Duration::from_secs(0) {
@@ -166,6 +176,7 @@ impl <TArg> Throttle<TArg> {
 #[cfg(test)]
 mod tests {
     use std::time::{Duration, Instant};
+    use std::thread::sleep;
     use Throttle;
 
     #[test]
@@ -221,6 +232,21 @@ mod tests {
             |_, _| Duration::from_millis(0));
 
         throttle.acquire(());
+        throttle.acquire(());
+
+        // no panic, no problem!
+    }
+
+    #[test]
+    fn it_works_with_duration_smaller_than_already_elapsed_time() {
+        // iterate every 10 ms
+        let throttle = Throttle::new_tps_throttle(100.0);
+
+        // the first one is free!
+        throttle.acquire(());
+
+        sleep(Duration::from_millis(20));
+
         throttle.acquire(());
 
         // no panic, no problem!

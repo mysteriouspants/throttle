@@ -1,6 +1,6 @@
 [package]
 name = "mysteriouspants-throttle"
-version = "0.2.0"
+version = "0.2.1"
 
 description = "Simple throttle implementation to make rate-limiting easy."
 readme = "README.md"
