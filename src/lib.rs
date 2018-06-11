@@ -71,14 +71,37 @@ impl <TArg> Throttle<TArg> {
     /// Creates a new `Throttle` with a variable delay controlled by a closure. `delay_calculator`
     /// itself is an interesting type, any closure which satisfies `Fn(TArg, Duration) -> Duration`.
     ///
-    /// This lambda is called to determine the duration between iterations of your code - the
-    /// `Duration` it returns does not signify the additional time to be waited, but the total time
-    /// that ought to have elapsed, and the difference of the times will be waited. `TArg` is an
-    /// argument passsed in from a call to `acquire`, so you may pass any state you may require into
-    /// the lambda to make decisions about the wait time. The `Duration` argument the time that has
-    /// already elapsed from the previous call to `acquire` and now. If the `Duration` you return is
-    /// less than the `Duration` passed to you, or is zero, that means that no additional time ought
-    /// to be waited.
+    /// This lambda is called to determine the duration between iterations of your code.
+    ///
+    /// ```text
+    /// |TArg, Duration| -> Duration
+    ///   |      |             |
+    ///   |      |             |
+    ///   |      |             v
+    ///   |      |    Duration that ought to have elapsed between calls
+    ///   |      |    to acquire. If the Duration you return is less
+    ///   |      |    than the Duration passed to you, or is zero, that
+    ///   |      |    means that no additional time will to be waited.
+    ///   |      |
+    ///   |      +--> The time since the previous call to acquire and now.
+    ///   |
+    ///   |           An argument passed through from the call to acquire.
+    ///   +---------> You can use this to change the behavior of your
+    ///               Throttle based on conditions in your calling code.
+    /// ```
+    ///
+    /// Expressed differently, on the axis of time,
+    ///
+    /// ```text
+    ///   /------------lambda return--------------------\
+    ///   /----duration arg-----\                       |
+    ///  +-----------------------------------------------+
+    ///  ^                       ^\------additional-----/
+    ///  |                       |       time waited
+    ///  |                       |
+    ///  previous call           acquire called
+    ///  to acquire
+    /// ```
     ///
     /// An example use of a variable-rate throttle might be to wait different periods of time
     /// depending on whether your program is in backpressure, so "ease up" on your downstream call
@@ -91,8 +114,8 @@ impl <TArg> Throttle<TArg> {
     /// let throttle = Throttle::new_variable_throttle(
     ///     |in_backpressure: bool, time_since_previous_acquire: Duration|
     ///         match in_backpressure {
-    ///             true => Duration::from_millis(2100),
-    ///             false => Duration::from_millis(1100)
+    ///             true => Duration::from_millis(210),
+    ///             false => Duration::from_millis(110)
     ///         });
     ///
     /// // the first one is free!
@@ -100,11 +123,11 @@ impl <TArg> Throttle<TArg> {
     ///
     /// let start_nopressure = Instant::now();
     /// throttle.acquire(false);
-    /// assert_eq!(start_nopressure.elapsed().as_secs() == 1, true);
+    /// assert_eq!(start_nopressure.elapsed().as_millis() >= 100, true);
     ///
     /// let start_yespressure = Instant::now();
     /// throttle.acquire(true);
-    /// assert_eq!(start_yespressure.elapsed().as_secs() == 2, true);
+    /// assert_eq!(start_yespressure.elapsed().as_millis() >= 200, true);
     /// ```
     pub fn new_variable_throttle<TDelayCalculator: Fn(TArg, Duration) -> Duration + 'static>(
         delay_calculator: TDelayCalculator) -> Throttle<TArg> {
@@ -114,7 +137,7 @@ impl <TArg> Throttle<TArg> {
         };
     }
 
-    /// Creates a new `Throttle` with a constant delay of `tps`<sup>-1</sup> &middot; 1000ms, or
+    /// Creates a new `Throttle` with a constant delay of `tps`<sup>-1</sup> &middot; 1000 ms, or
     /// `tps`-transactions per second.
     ///
     /// ```rust
