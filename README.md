@@ -35,12 +35,11 @@ variable-rate throttling based on conditions entirely up to your program.
 let throttle = Throttle::new_variable_throttle(
     |iteration: u32, _| Duration::from_millis(arg));
 
-// the first one is free, so the number won't get used
-throttle.acquire(0);
-
 let iteration_start = Instant::now();
 
-for i in 1..5 {
+// the first iteration is free, subsequent iterations
+// will be slowed down
+for i in 0..5 {
     throttle.acquire(i * 100);
 }
 
@@ -49,4 +48,8 @@ assert_eq!(iteration_start.elapsed().as_secs() == 1, true);
 
 # License
 
-Throttle is licensed under the [2-clause BSD](https://opensource.org/licenses/BSD-2-Clause) license.
+I want you to be able to use this software regardless of who you may be, what you are working on, or the environment in
+which you are working on it - I hope you'll use it for good and not evil! To this end, Throttle is licensed under the
+[2-clause BSD][2cbsd] license, with other licenses available by request. Happy coding!
+
+[2cbsd]: https://opensource.org/licenses/BSD-2-Clause

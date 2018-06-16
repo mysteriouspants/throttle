@@ -61,7 +61,7 @@ enum ThrottleState {
     }
 }
 
-// A simple configurable throttle for slowing down code. A Throttle
+/// A simple configurable throttle for slowing down code, a little struct holding some state.
 pub struct Throttle<TArg> {
     delay_calculator: Box<Fn(TArg, Duration) -> Duration>,
     state: Cell<ThrottleState>
@@ -123,10 +123,12 @@ impl <TArg> Throttle<TArg> {
     ///
     /// let start_nopressure = Instant::now();
     /// throttle.acquire(false);
+    /// assert_eq!(start_nopressure.elapsed().as_secs() == 0, true);
     /// assert_eq!(start_nopressure.elapsed().subsec_nanos() >= 100_000_000, true);
     ///
     /// let start_yespressure = Instant::now();
     /// throttle.acquire(true);
+    /// assert_eq!(start_yespressure.elapsed().as_secs() == 0, true);
     /// assert_eq!(start_yespressure.elapsed().subsec_nanos() >= 200_000_000, true);
     /// ```
     pub fn new_variable_throttle<TDelayCalculator: Fn(TArg, Duration) -> Duration + 'static>(
@@ -224,12 +226,9 @@ mod tests {
         let throttle = Throttle::new_variable_throttle(
             |arg: u64, _| Duration::from_millis(arg));
 
-        // the first one is free, so the number won't get used
-        throttle.acquire(0);
-
         let iteration_start = Instant::now();
 
-        for i in 1..5 {
+        for i in 0..5 {
             throttle.acquire(i * 100);
         }
 
