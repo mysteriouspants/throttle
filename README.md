@@ -9,7 +9,7 @@ contention and browning out downstream services.
 
 ```rust
 // simple throttle configured for 10 TPS
-let throttle = Throttle::new_tps_throttle(10.0);
+let mut throttle = Throttle::new_tps_throttle(10.0);
 
 let iteration_start = Instant::now();
 
@@ -32,7 +32,7 @@ Throttle is based on a functional interface, so it can go beyond constant tps ra
 variable-rate throttling based on conditions entirely up to your program.
 
 ```rust
-let throttle = Throttle::new_variable_throttle(
+let mut throttle = Throttle::new_variable_throttle(
     |iteration: u32, _| Duration::from_millis(arg));
 
 let iteration_start = Instant::now();

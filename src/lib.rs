@@ -14,7 +14,7 @@
 //! # use mysteriouspants_throttle::Throttle;
 //! # fn main() {
 //! // create a new Throttle that rate limits to 10 TPS
-//! let throttle = Throttle::new_tps_throttle(10.0);
+//! let mut throttle = Throttle::new_tps_throttle(10.0);
 //!
 //! let iteration_start = Instant::now();
 //!
@@ -37,7 +37,7 @@
 //! # use std::time::{Duration, Instant};
 //! # use mysteriouspants_throttle::Throttle;
 //! # fn main() {
-//! let throttle = Throttle::new_variable_throttle(
+//! let mut throttle = Throttle::new_variable_throttle(
 //!     |arg: u64, _| Duration::from_millis(arg));
 //!
 //! let iteration_start = Instant::now();
@@ -48,8 +48,11 @@
 //!
 //! assert_eq!(iteration_start.elapsed().as_secs() == 1, true);
 //! # }
+//! ```
+//!
+//! When using your throttle, keep in mind that you are responsible for sharing it between
+//! threads safely and responsibly.
 
-use std::cell::Cell;
 use std::time::{Duration, Instant};
 use std::thread::sleep;
 
@@ -64,7 +67,7 @@ enum ThrottleState {
 /// A simple configurable throttle for slowing down code, a little struct holding some state.
 pub struct Throttle<TArg> {
     delay_calculator: Box<Fn(TArg, Duration) -> Duration>,
-    state: Cell<ThrottleState>
+    state: ThrottleState
 }
 
 impl <TArg> Throttle<TArg> {
@@ -111,7 +114,7 @@ impl <TArg> Throttle<TArg> {
     /// # extern crate mysteriouspants_throttle;
     /// # use std::time::{Duration, Instant};
     /// # use mysteriouspants_throttle::Throttle;
-    /// let throttle = Throttle::new_variable_throttle(
+    /// let mut throttle = Throttle::new_variable_throttle(
     ///     |in_backpressure: bool, time_since_previous_acquire: Duration|
     ///         match in_backpressure {
     ///             true => Duration::from_millis(210),
@@ -135,7 +138,7 @@ impl <TArg> Throttle<TArg> {
         delay_calculator: TDelayCalculator) -> Throttle<TArg> {
         return Throttle {
             delay_calculator: Box::new(delay_calculator),
-            state: Cell::new(ThrottleState::Uninitialized)
+            state: ThrottleState::Uninitialized
         };
     }
 
@@ -146,7 +149,7 @@ impl <TArg> Throttle<TArg> {
     /// # extern crate mysteriouspants_throttle;
     /// # use std::time::{Duration, Instant};
     /// # use mysteriouspants_throttle::Throttle;
-    /// let throttle = Throttle::new_tps_throttle(0.9);
+    /// let mut throttle = Throttle::new_tps_throttle(0.9);
     ///
     /// // the first one is free!
     /// throttle.acquire(());
@@ -160,7 +163,7 @@ impl <TArg> Throttle<TArg> {
         return Throttle {
             delay_calculator: Box::new(move |_, _|
                 Duration::from_millis(wait_for_millis)),
-            state: Cell::new(ThrottleState::Uninitialized)
+            state: ThrottleState::Uninitialized
         };
     }
 
@@ -169,8 +172,8 @@ impl <TArg> Throttle<TArg> {
     /// `acquire` will never wait because there has been an undefined or arguably infinite amount
     /// of time from the previous time acquire was called. The argument `arg` is passed to the
     /// closure governing the wait time.
-    pub fn acquire(&self, arg: TArg) {
-        match self.state.get() {
+    pub fn acquire(&mut self, arg: TArg) {
+        match self.state {
             ThrottleState::Initialized { previous_invocation } => {
                 let time_since_previous_acquire =
                     Instant::now().duration_since(previous_invocation);
@@ -185,14 +188,10 @@ impl <TArg> Throttle<TArg> {
                     }
                 }
 
-                self.state.replace(ThrottleState::Initialized {
-                    previous_invocation: Instant::now()
-                });
+                self.state = ThrottleState::Initialized { previous_invocation: Instant::now() };
             },
             ThrottleState::Uninitialized => {
-                self.state.replace(ThrottleState::Initialized {
-                    previous_invocation: Instant::now()
-                });
+                self.state = ThrottleState::Initialized { previous_invocation: Instant::now() };
             }
         }
     }
@@ -207,7 +206,7 @@ mod tests {
     #[test]
     fn it_works() {
         // simple throttle configured for 10 TPS
-        let throttle = Throttle::new_tps_throttle(10.0);
+        let mut throttle = Throttle::new_tps_throttle(10.0);
 
         // the first one is free
         throttle.acquire(());
@@ -223,7 +222,7 @@ mod tests {
 
     #[test]
     fn it_works_more_complicated() {
-        let throttle = Throttle::new_variable_throttle(
+        let mut throttle = Throttle::new_variable_throttle(
             |arg: u64, _| Duration::from_millis(arg));
 
         let iteration_start = Instant::now();
@@ -240,7 +239,7 @@ mod tests {
 
     #[test]
     fn it_works_with_no_delay_at_all_tps() {
-        let throttle = Throttle::new_tps_throttle(0.0);
+        let mut throttle = Throttle::new_tps_throttle(0.0);
 
         throttle.acquire(());
         throttle.acquire(());
@@ -250,7 +249,7 @@ mod tests {
 
     #[test]
     fn it_works_with_no_delay_at_all_variable() {
-        let throttle = Throttle::new_variable_throttle(
+        let mut throttle = Throttle::new_variable_throttle(
             |_, _| Duration::from_millis(0));
 
         throttle.acquire(());
@@ -262,7 +261,7 @@ mod tests {
     #[test]
     fn it_works_with_duration_smaller_than_already_elapsed_time() {
         // iterate every 10 ms
-        let throttle = Throttle::new_tps_throttle(100.0);
+        let mut throttle = Throttle::new_tps_throttle(100.0);
 
         // the first one is free!
         throttle.acquire(());
