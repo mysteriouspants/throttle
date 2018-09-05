@@ -66,7 +66,7 @@ enum ThrottleState {
 
 /// A simple configurable throttle for slowing down code, a little struct holding some state.
 pub struct Throttle<TArg> {
-    delay_calculator: Box<Fn(TArg, Duration) -> Duration>,
+    delay_calculator: Box<Fn(TArg, Duration) -> Duration + Send + Sync>,
     state: ThrottleState
 }
 
@@ -134,7 +134,7 @@ impl <TArg> Throttle<TArg> {
     /// assert_eq!(start_yespressure.elapsed().as_secs() == 0, true);
     /// assert_eq!(start_yespressure.elapsed().subsec_nanos() >= 200_000_000, true);
     /// ```
-    pub fn new_variable_throttle<TDelayCalculator: Fn(TArg, Duration) -> Duration + 'static>(
+    pub fn new_variable_throttle<TDelayCalculator: Fn(TArg, Duration) -> Duration + 'static + Send + Sync>(
         delay_calculator: TDelayCalculator) -> Throttle<TArg> {
         return Throttle {
             delay_calculator: Box::new(delay_calculator),
@@ -271,5 +271,21 @@ mod tests {
         throttle.acquire(());
 
         // no panic, no problem!
+    }
+
+    // these break if the struct loses it's sync+send status
+
+    fn is_send<T: Send>() { }
+
+    #[test]
+    fn enforce_send() {
+        is_send::<Throttle<()>>()
+    }
+
+    fn is_sync<T: Sync>() { }
+
+    #[test]
+    fn enforce_sync() {
+        is_sync::<Throttle<()>>()
     }
 }
